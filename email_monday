@@ -1,0 +1,42 @@
+import smtplib, ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import sqlite3
+from predict import predict_next_cravings
+from datetime import datetime
+
+# CHANGE THESE ↓↓↓
+YOUR_EMAIL = "you@gmail.com"
+YOUR_PASSWORD = "app-password-here"  # use Gmail App Password!
+LISA_LAST_WEEK = "tacos, chocolate, sushi"  # fallback if she didn't submit
+
+conn = sqlite3.connect("cravings.db")
+last = conn.execute("SELECT text FROM cravings ORDER BY date DESC LIMIT 1").fetchone()
+conn.close()
+
+body = f"""
+Lisa Craving Risk Report – {datetime.now().strftime('%b %d, %Y')}
+
+This week she said:
+{(last[0] if last else "She forgot to tell me 😭")}
+
+Predicted cravings for next week (getting smarter every week):
+"""
+for p in predict_next_cravings(5):
+    body += f"• {p}\n"
+
+body += "\nLove you babe ❤️\n— Your grocery AI husband"
+
+msg = MIMEMultipart()
+msg['From'] = YOUR_EMAIL
+msg['To'] = YOUR_EMAIL
+msg['Subject'] = "Lisa Craving Report – Monday Edition"
+
+msg.attach(MIMEText(body, 'plain'))
+
+context = ssl.create_default_context()
+with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+    server.login(YOUR_EMAIL, YOUR_PASSWORD)
+    server.sendmail(YOUR_EMAIL, YOUR_EMAIL, msg.as_string())
+
+print("Monday email sent!")
